@@ -259,7 +259,7 @@ Current working directory: /workspace`,
     expect(prompt).not.toContain("Prefer read for file inspection");
   });
 
-  test("prefers fetch over bash when both are available and task is URL-related", () => {
+  test("includes fetch and bash with URL-related guidance when both are available", () => {
     const built = buildToolPrompt({
       messages: [{ role: "user", content: "Check the status of https://example.com", timestamp: 1 }],
       tools: [
