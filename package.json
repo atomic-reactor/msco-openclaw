@@ -1,0 +1,31 @@
+{
+  "name": "@atomic-ai/msco-openclaw",
+  "version": "0.1.4",
+  "private": false,
+  "description": "Microsoft Copilot provider plugin for OpenClaw.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": "./src/index.ts",
+  "openclaw": {
+    "extensions": [
+      "./src/index.ts"
+    ]
+  },
+  "scripts": {
+    "test": "vitest --run"
+  },
+  "dependencies": {
+    "dotenv": "^16.6.1",
+    "openclaw": "^2026.3.31",
+    "ws": "^8.18.3"
+  },
+  "peerDependencies": {
+    "openclaw": "*"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.18.1",
+    "@types/node": "^24.5.2",
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
+  }
+}

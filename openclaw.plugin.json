@@ -1,0 +1,25 @@
+{
+  "id": "msco-openclaw",
+  "enabledByDefault": false,
+  "providers": ["microsoft-copilot"],
+  "providerAuthEnvVars": {
+    "microsoft-copilot": ["MICROSOFT_COPILOT_ACCESS_TOKEN"]
+  },
+  "providerAuthChoices": [
+    {
+      "provider": "microsoft-copilot",
+      "method": "token",
+      "choiceId": "microsoft-copilot",
+      "choiceLabel": "Microsoft Copilot",
+      "choiceHint": "Paste your Microsoft Copilot access token",
+      "groupId": "copilot",
+      "groupLabel": "Copilot",
+      "groupHint": "Microsoft and GitHub Copilot providers"
+    }
+  ],
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {}
+  }
+}
