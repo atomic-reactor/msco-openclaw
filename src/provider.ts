@@ -1,10 +1,11 @@
 import type { StreamFn } from "@mariozechner/pi-agent-core";
-import type { ThinkingLevel } from "@mariozechner/pi-ai";
+import { getApiProvider, registerApiProvider, type ThinkingLevel } from "@mariozechner/pi-ai";
 import type {
   ProviderAuthContext,
   ProviderAuthResult,
 } from "openclaw/plugin-sdk/plugin-entry";
 import { loadConfig, maskConfigForLog } from "./core/config.js";
+import { SessionTraceWriter } from "./core/session-trace.js";
 import type { CopilotMode } from "./types.js";
 import { CopilotRuntimeManager } from "./runtime/runtime-manager.js";
 import { CopilotSessionStore } from "./runtime/session-store.js";
@@ -29,10 +30,13 @@ export const PROVIDER_MODELS = [
 ];
 
 const sessionStore = new CopilotSessionStore();
+const resolvedConfig = loadConfig();
+const traceWriter = resolvedConfig.trace ? new SessionTraceWriter(resolvedConfig.traceFile) : undefined;
 const runtimeManager = new CopilotRuntimeManager(
-  loadConfig(),
+  resolvedConfig,
   (sessionId) => sessionStore.get(sessionId),
   (state) => sessionStore.set(state),
+  { traceWriter },
 );
 
 function buildProfileId(): string {
@@ -109,6 +113,21 @@ function buildStreamFn(): StreamFn {
   };
 }
 
+function ensureApiProviderRegistered(): void {
+  if (getApiProvider(API_ID)) {
+    return;
+  }
+
+  registerApiProvider(
+    {
+      api: API_ID as any,
+      stream: (model: any, context: any, options?: any) => buildStreamFn()(model, context, options) as any,
+      streamSimple: (model: any, context: any, options?: any) => buildStreamFn()(model, context, options) as any,
+    },
+    "msco-openclaw",
+  );
+}
+
 export function resolveCopilotMode(reasoning: ThinkingLevel | "off" | undefined): CopilotMode | undefined {
   if (!reasoning || reasoning === "off") {
     return "smart";
@@ -120,7 +139,8 @@ export function resolveCopilotMode(reasoning: ThinkingLevel | "off" | undefined)
 }
 
 export function buildMicrosoftCopilotProvider() {
-  const config = loadConfig();
+  ensureApiProviderRegistered();
+  const config = resolvedConfig;
   return {
     id: PROVIDER_ID,
     label: "Microsoft Copilot",

@@ -74,3 +74,13 @@ export class AssistantMessageEventStream extends EventStream<any, any> {
 export function createAssistantMessageEventStream(): AssistantMessageEventStream {
   return new AssistantMessageEventStream();
 }
+
+const apiRegistry = new Map<string, any>();
+
+export function registerApiProvider(provider: { api: string }, _sourceId?: string): void {
+  apiRegistry.set(provider.api, provider);
+}
+
+export function getApiProvider(api: string): any {
+  return apiRegistry.get(api);
+}

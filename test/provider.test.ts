@@ -1,4 +1,5 @@
 import { describe, expect, test } from "vitest";
+import { getApiProvider } from "@mariozechner/pi-ai";
 import {
   PROVIDER_MODELS,
   buildMicrosoftCopilotProvider,
@@ -134,5 +135,10 @@ describe("provider", () => {
         apiKey: "legacy-oauth-token",
       },
     });
+  });
+
+  test("registers custom API stream provider for microsoft-copilot-chat", () => {
+    buildMicrosoftCopilotProvider();
+    expect(getApiProvider("microsoft-copilot-chat" as any)).toBeTruthy();
   });
 });

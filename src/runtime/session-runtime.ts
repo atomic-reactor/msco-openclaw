@@ -42,6 +42,7 @@ interface EnsureSessionResult {
 type ResponseHandlingMode = "streamingText" | "toolAware";
 type ToolRecoveryReason = "empty" | "invalid-shape" | "too-many-messages" | "conversation-error";
 type RequestStage = "initial" | "same-conversation-repair" | "fresh-conversation-replay";
+const RESPONSE_TIMEOUT_MS = 45_000;
 
 interface RequestPolicy {
   originalPrompt: string;
@@ -243,6 +244,14 @@ export class CopilotSessionRuntime {
     }
 
     try {
+      this.dependencies.traceWriter?.write("request.start", {
+        sessionId: this.state.sessionId,
+        conversationId: this.state.conversationId || null,
+        responseHandlingMode,
+        mode: copilotMode || this.config.mode,
+        promptChars: prompt.length,
+        stage: policy.stage
+      });
       if (aborted) {
         stream.push({
           type: "error",
@@ -279,10 +288,16 @@ export class CopilotSessionRuntime {
       let started = false;
       let completed = false;
       let handedOff = false;
+      let observedInboundEvent = false;
+      let responseTimeout: ReturnType<typeof setTimeout> | undefined;
       const cleanup = () => {
         transport.off("message", onMessage);
         transport.off("close", onClose);
         transport.off("error", onError);
+        if (responseTimeout) {
+          clearTimeout(responseTimeout);
+          responseTimeout = undefined;
+        }
       };
 
       const fail = (reason: "aborted" | "error", message: string) => {
@@ -291,6 +306,12 @@ export class CopilotSessionRuntime {
         }
         completed = true;
         cleanup();
+        this.dependencies.traceWriter?.write("request.failed", {
+          reason,
+          message,
+          stage: policy.stage,
+          hadInboundEvent: observedInboundEvent
+        });
         stream.push({
           type: "error",
           reason,
@@ -421,6 +442,11 @@ export class CopilotSessionRuntime {
             return;
           }
           completed = true;
+          this.dependencies.traceWriter?.write("request.completed", {
+            stopReason: "stop",
+            outputChars: parsed.text.length,
+            stage: policy.stage
+          });
           emitFinalText(stream, partial, parsed.text);
           stream.push({
             type: "done",
@@ -432,6 +458,11 @@ export class CopilotSessionRuntime {
         }
 
         completed = true;
+        this.dependencies.traceWriter?.write("request.completed", {
+          stopReason: "toolUse",
+          toolCallCount: parsed.toolCalls.length,
+          stage: policy.stage
+        });
         partial.content = parsed.toolCalls;
         stream.push({ type: "start", partial });
         parsed.toolCalls.forEach((toolCall, contentIndex) => {
@@ -458,6 +489,11 @@ export class CopilotSessionRuntime {
 
         completed = true;
         cleanup();
+        this.dependencies.traceWriter?.write("request.completed", {
+          stopReason: "stop",
+          outputChars: textContent.text.length,
+          stage: policy.stage
+        });
         emitFinalText(stream, partial, textContent.text, started);
         stream.push({
           type: "done",
@@ -469,6 +505,13 @@ export class CopilotSessionRuntime {
 
       const onMessage = async (event: CopilotInboundEvent) => {
         try {
+          observedInboundEvent = true;
+          this.dependencies.traceWriter?.write("socket.inbound.event", {
+            event: event.event,
+            id: event.id,
+            errorCode: event.errorCode,
+            textChars: typeof event.text === "string" ? event.text.length : 0
+          });
           this.lastInboundEventId = event.id || this.lastInboundEventId;
           if (event.event === "ping") {
             transport.sendJson(buildPongEvent({ pingId: event.id, lastEventId: this.lastInboundEventId }));
@@ -528,6 +571,13 @@ export class CopilotSessionRuntime {
       transport.on("close", onClose);
       transport.on("error", onError);
 
+      responseTimeout = setTimeout(() => {
+        if (completed) {
+          return;
+        }
+        fail("error", "No Copilot response events received before timeout");
+      }, RESPONSE_TIMEOUT_MS);
+
       transport.sendJson(buildMessagePreviewEvent({ conversationId, prompt }));
       transport.sendJson(buildSendEvent({ conversationId, prompt, mode: copilotMode || this.config.mode }));
       await completion;
@@ -551,11 +601,18 @@ export class CopilotSessionRuntime {
 
   private async ensureSession(accessToken: string): Promise<EnsureSessionResult> {
     if (!this.state.conversationId) {
+      this.dependencies.traceWriter?.write("conversation.create.start", {
+        sessionId: this.state.sessionId
+      });
       this.state = {
         ...this.state,
         conversationId: await this.createConversationService(accessToken).createConversation(),
         updatedAt: new Date().toISOString()
       };
+      this.dependencies.traceWriter?.write("conversation.create.done", {
+        sessionId: this.state.sessionId,
+        conversationId: this.state.conversationId
+      });
       this.persistState(this.state);
     }
 
@@ -568,11 +625,19 @@ export class CopilotSessionRuntime {
   private async recreateConversation(accessToken: string): Promise<void> {
     this.transport?.disconnect(1000, "recreate-conversation");
     this.transport = null;
+    this.dependencies.traceWriter?.write("conversation.recreate.start", {
+      sessionId: this.state.sessionId,
+      previousConversationId: this.state.conversationId
+    });
     this.state = {
       ...this.state,
       conversationId: await this.createConversationService(accessToken).createConversation(),
       updatedAt: new Date().toISOString()
     };
+    this.dependencies.traceWriter?.write("conversation.recreate.done", {
+      sessionId: this.state.sessionId,
+      conversationId: this.state.conversationId
+    });
     this.persistState(this.state);
   }
 

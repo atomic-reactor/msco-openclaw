@@ -86,3 +86,19 @@ Thinking mapping:
 
 - **No usage/quota numbers shown**
   - Expected in v1. Usage endpoint wiring is not implemented yet.
+
+- **No output and no visible Copilot web conversation**
+  - Enable tracing:
+    ```bash
+    export MICROSOFT_COPILOT_TRACE=1
+    export MICROSOFT_COPILOT_TRACE_FILE=~/.openclaw/logs/msco-openclaw.ndjson
+    ```
+  - Restart OpenClaw and retry once, then inspect:
+    ```bash
+    tail -n 120 ~/.openclaw/logs/msco-openclaw.ndjson
+    ```
+  - Look for these events:
+    - `request.start`
+    - `conversation.create.start` / `conversation.create.done`
+    - `socket.inbound.event`
+    - `request.completed` or `request.failed`
