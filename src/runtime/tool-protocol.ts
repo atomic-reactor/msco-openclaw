@@ -40,8 +40,8 @@ const TOOL_PROTOCOL_INSTRUCTIONS = [
   "Never return an empty response.",
   "If more information is needed, request the next toolCalls immediately.",
   "If the available information is sufficient, return responseType message immediately.",
-  "Prefer read for file inspection. Use bash mainly for listing, searching, or simple commands.",
-  "Tool arguments must be valid JSON. Keep shell commands short and single-line.",
+  "Use the most appropriate available tool for each subtask. Prefer dedicated tools (e.g. fetch for web requests, read for files) over general-purpose ones (e.g. bash) when available.",
+  "Tool arguments must be valid JSON.",
   "Do not wrap the JSON in markdown fences."
 ].join("\n");
 
@@ -446,12 +446,18 @@ function selectGuidanceSections(prompt: string): string {
 }
 
 function summarizeToolParameters(tool: Tool): string {
-  const properties = (tool.parameters as { properties?: Record<string, unknown> } | undefined)?.properties;
+  const properties = (tool.parameters as { properties?: Record<string, { type?: unknown }> } | undefined)?.properties;
   if (!properties) {
     return "";
   }
 
-  return Object.keys(properties).slice(0, 4).join(", ");
+  return Object.entries(properties)
+    .slice(0, 6)
+    .map(([name, schema]) => {
+      const type = typeof schema?.type === "string" ? `:${schema.type}` : "";
+      return `${name}${type}`;
+    })
+    .join(", ");
 }
 
 function compactDescription(description: string | undefined): string {

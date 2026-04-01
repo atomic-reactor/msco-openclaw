@@ -30,7 +30,7 @@ describe("tool protocol", () => {
     expect(built.metadata.kind).toBe("initial");
     expect(prompt).toContain("AVAILABLE TOOLS");
     expect(prompt).toContain("CURRENT TURN");
-    expect(prompt).toContain("read(path)");
+    expect(prompt).toContain("read(path:string)");
     expect(prompt).toContain("TASK");
     expect(prompt).toContain("Read package.json");
     expect(prompt).toContain('"responseType":"toolCalls"');
@@ -228,5 +228,102 @@ Current working directory: /workspace`,
     expect(built.prompt).toContain("BASE PROMPT");
     expect(built.prompt).toContain("Previous reply");
     expect(built.prompt).toContain("not json");
+  });
+
+  test("includes a fetch tool in the available tools section with typed parameters", () => {
+    const built = buildToolPrompt({
+      messages: [{ role: "user", content: "Get the OpenClaw changelog from GitHub", timestamp: 1 }],
+      tools: [
+        {
+          name: "fetch",
+          description: "Fetch content from a URL",
+          parameters: {
+            type: "object",
+            properties: {
+              url: { type: "string" },
+              method: { type: "string" },
+              headers: { type: "object" },
+              body: { type: "string" }
+            }
+          }
+        } as any
+      ]
+    });
+
+    const prompt = built.prompt;
+    expect(built.metadata.kind).toBe("initial");
+    expect(prompt).toContain("AVAILABLE TOOLS");
+    expect(prompt).toContain("fetch(url:string, method:string, headers:object, body:string)");
+    expect(prompt).toContain("Fetch content from a URL");
+    expect(prompt).toContain("fetch for web requests");
+    expect(prompt).not.toContain("Prefer read for file inspection");
+  });
+
+  test("prefers fetch over bash when both are available and task is URL-related", () => {
+    const built = buildToolPrompt({
+      messages: [{ role: "user", content: "Check the status of https://example.com", timestamp: 1 }],
+      tools: [
+        {
+          name: "fetch",
+          description: "Fetch content from a URL",
+          parameters: {
+            type: "object",
+            properties: {
+              url: { type: "string" },
+              method: { type: "string" }
+            }
+          }
+        } as any,
+        {
+          name: "bash",
+          description: "Run a shell command",
+          parameters: {
+            type: "object",
+            properties: {
+              command: { type: "string" }
+            }
+          }
+        } as any
+      ]
+    });
+
+    const prompt = built.prompt;
+    expect(prompt).toContain("fetch(url:string, method:string)");
+    expect(prompt).toContain("bash(command:string)");
+    expect(prompt).toContain("fetch for web requests");
+    expect(prompt).toContain("e.g. bash");
+  });
+
+  test("parses a fetch tool call response with url and method arguments", () => {
+    const parsed = parseCopilotToolResponse(
+      '{"responseType":"toolCalls","toolCalls":[{"name":"fetch","arguments":{"url":"https://example.com/api","method":"GET"}}]}'
+    );
+
+    expect(parsed).toMatchObject({
+      kind: "toolCalls",
+      toolCalls: [{ type: "toolCall", name: "fetch", arguments: { url: "https://example.com/api", method: "GET" } }]
+    });
+  });
+
+  test("parses a fetch tool call response with headers and body arguments", () => {
+    const parsed = parseCopilotToolResponse(
+      '{"responseType":"toolCalls","toolCalls":[{"name":"fetch","arguments":{"url":"https://api.example.com/data","method":"POST","headers":{"Content-Type":"application/json"},"body":"{\\"key\\":\\"value\\"}"}}]}'
+    );
+
+    expect(parsed).toMatchObject({
+      kind: "toolCalls",
+      toolCalls: [
+        {
+          type: "toolCall",
+          name: "fetch",
+          arguments: {
+            url: "https://api.example.com/data",
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: '{"key":"value"}'
+          }
+        }
+      ]
+    });
   });
 });
