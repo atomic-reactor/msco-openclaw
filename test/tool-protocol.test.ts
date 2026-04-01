@@ -64,7 +64,7 @@ Current working directory: /workspace`,
     expect(prompt).not.toContain("Pi documentation");
     expect(prompt).not.toContain("OpenClaw documentation");
     expect(prompt).not.toContain("Main documentation: /tmp/README.md");
-    expect(prompt).not.toContain("personal assistant running inside OpenClaw");
+    expect(prompt).not.toContain("You are an expert coding assistant.");
   });
 
   test("parses final JSON responses", () => {

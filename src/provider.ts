@@ -270,7 +270,7 @@ export function buildMicrosoftCopilotProvider() {
         baseUrl: BASE_URL,
       };
     },
-    resolveDefaultThinkingLevel: () => "low" as const,
+    resolveDefaultThinkingLevel: () => "medium" as const,
     buildUnknownModelHint: () =>
       "Use microsoft-copilot/copilot for this provider (single-model v1).",
     normalizeConfig: ({ providerConfig }: any) => {

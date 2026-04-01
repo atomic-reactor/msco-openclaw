@@ -59,10 +59,10 @@ describe("provider", () => {
     );
   });
 
-  test("default thinking level aligns with smart mode fallback", () => {
+  test("default thinking level aligns with reasoning mode fallback", () => {
     const provider = buildMicrosoftCopilotProvider();
-    expect(provider.resolveDefaultThinkingLevel()).toBe("low");
-    expect(resolveCopilotMode(provider.resolveDefaultThinkingLevel())).toBe("smart");
+    expect(provider.resolveDefaultThinkingLevel()).toBe("medium");
+    expect(resolveCopilotMode(provider.resolveDefaultThinkingLevel())).toBe("reasoning");
   });
 
   test("unknown model hint enforces single-model policy", () => {
