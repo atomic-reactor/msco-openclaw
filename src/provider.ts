@@ -177,16 +177,45 @@ export function buildMicrosoftCopilotProvider() {
     catalog: {
       order: "late" as const,
       run: async (ctx: any) => {
+        traceWriter?.write("provider.catalog.start", {
+          providerId: PROVIDER_ID,
+          hasResolveProviderApiKey: typeof ctx?.resolveProviderApiKey === "function",
+          hasResolveProviderAuth: typeof ctx?.resolveProviderAuth === "function",
+          pid: process.pid
+        });
         let key = ctx.resolveProviderApiKey(PROVIDER_ID).apiKey?.trim();
+        traceWriter?.write("provider.catalog.api-key", {
+          source: "resolveProviderApiKey",
+          hasKey: Boolean(key),
+          keyLength: key?.length ?? 0
+        });
         if (!key && typeof ctx.resolveProviderAuth === "function") {
           const auth = ctx.resolveProviderAuth(PROVIDER_ID, {
             oauthMarker: "__microsoft_copilot_profile__",
           });
+          traceWriter?.write("provider.catalog.auth-fallback", {
+            mode: auth?.mode ?? null,
+            source: auth?.source ?? null,
+            hasDiscoveryApiKey: Boolean(auth?.discoveryApiKey),
+            discoveryApiKeyLength: auth?.discoveryApiKey?.length ?? 0,
+            profileId: auth?.profileId ?? null
+          });
           key = auth?.discoveryApiKey?.trim();
         }
         if (!key) {
+          traceWriter?.write("provider.catalog.result", {
+            providerId: PROVIDER_ID,
+            result: "null-no-key"
+          });
           return null;
         }
+        traceWriter?.write("provider.catalog.result", {
+          providerId: PROVIDER_ID,
+          result: "provider",
+          api: API_ID,
+          baseUrl: BASE_URL,
+          keyLength: key.length
+        });
         return {
           provider: {
             api: API_ID,
@@ -197,11 +226,42 @@ export function buildMicrosoftCopilotProvider() {
         };
       },
     },
-    createStreamFn: () => buildStreamFn(),
+    createStreamFn: (ctx: any) => {
+      traceWriter?.write("provider.createStreamFn", {
+        provider: ctx?.provider ?? PROVIDER_ID,
+        modelId: ctx?.modelId ?? null,
+        modelApi: ctx?.model?.api ?? null,
+        modelProvider: ctx?.model?.provider ?? null,
+        pid: process.pid
+      });
+      return buildStreamFn();
+    },
+    wrapStreamFn: (ctx: any) => {
+      traceWriter?.write("provider.wrapStreamFn", {
+        provider: ctx?.provider ?? PROVIDER_ID,
+        modelId: ctx?.modelId ?? null,
+        modelApi: ctx?.model?.api ?? null,
+        modelProvider: ctx?.model?.provider ?? null,
+        hasInnerStreamFn: typeof ctx?.streamFn === "function",
+        pid: process.pid
+      });
+      // Force Microsoft Copilot traffic through the plugin runtime even when
+      // OpenClaw has a built-in handler for the model API (e.g. openai-completions).
+      return buildStreamFn();
+    },
     buildMissingAuthMessage: () =>
       "Microsoft Copilot token missing. Run `openclaw models auth login --provider microsoft-copilot`.",
     prepareRuntimeAuth: async (ctx: any) => {
       const token = ctx.apiKey?.trim();
+      traceWriter?.write("provider.prepareRuntimeAuth", {
+        provider: ctx?.provider ?? PROVIDER_ID,
+        modelId: ctx?.modelId ?? null,
+        authMode: ctx?.authMode ?? null,
+        profileId: ctx?.profileId ?? null,
+        hasApiKey: Boolean(token),
+        apiKeyLength: token?.length ?? 0,
+        pid: process.pid
+      });
       if (!token) {
         throw new Error("Microsoft Copilot access token is missing.");
       }

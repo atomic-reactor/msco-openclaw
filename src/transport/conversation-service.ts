@@ -29,7 +29,12 @@ export class CopilotConversationService {
       headers.Cookie = this.config.cookie;
     }
 
-    this.traceWriter?.write("conversation.create.request", { url, hasCookie: Boolean(this.config.cookie) });
+    this.traceWriter?.write("conversation.create.request", {
+      method: "POST",
+      url,
+      headers,
+      hasCookie: Boolean(this.config.cookie)
+    });
 
     const response = await this.fetchImpl(url, {
       method: "POST",
@@ -88,7 +93,12 @@ export class CopilotConversationService {
       headers.Cookie = this.config.cookie;
     }
 
-    this.traceWriter?.write("config.fetch.request", { url, hasCookie: Boolean(this.config.cookie) });
+    this.traceWriter?.write("config.fetch.request", {
+      method: "GET",
+      url,
+      headers,
+      hasCookie: Boolean(this.config.cookie)
+    });
 
     const response = await this.fetchImpl(url, { headers });
     const text = await response.text();

@@ -106,11 +106,14 @@ Thinking mapping:
     ```
   - Quick verification filters:
     ```bash
-    grep -E "plugin.debug.enabled|plugin.stream.invoked|request.start|request.completed|request.failed" ~/.openclaw/logs/msco-openclaw.ndjson | tail -n 40
+    grep -E "plugin.debug.enabled|plugin.stream.invoked|conversation.create.request|config.fetch.request|socket.connecting|request.start|request.completed|request.failed" ~/.openclaw/logs/msco-openclaw.ndjson | tail -n 80
     ```
   - Look for these events:
     - `plugin.debug.enabled` (confirms daemon loaded env + plugin startup)
+    - `provider.wrapStreamFn` (confirms OpenClaw actually wired this provider's stream path)
     - `plugin.stream.invoked` (confirms your actual request executed through this plugin)
+    - `conversation.create.request` / `config.fetch.request` (sanitized outbound HTTP request details)
+    - `socket.connecting` (sanitized websocket URL + headers used)
     - `request.start`
     - `conversation.create.start` / `conversation.create.done`
     - `socket.inbound.event`

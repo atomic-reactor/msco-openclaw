@@ -44,7 +44,11 @@ export class CopilotWebSocketClient extends EventEmitter<CopilotWebSocketClientE
 
     const url = buildWebSocketUrl(this.config, this.clientSessionId);
     const headers = buildWebSocketHeaders(this.config);
-    this.traceWriter?.write("socket.connecting", { url: url.toString(), hasCookie: Boolean(this.config.cookie) });
+    this.traceWriter?.write("socket.connecting", {
+      url: url.toString(),
+      headers,
+      hasCookie: Boolean(this.config.cookie)
+    });
 
     await new Promise<void>((resolve, reject) => {
       let settled = false;
