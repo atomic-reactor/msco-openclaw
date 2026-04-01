@@ -1,6 +1,6 @@
 {
   "name": "@atomic-ai/msco-openclaw",
-  "version": "0.1.11",
+  "version": "0.1.12",
   "private": false,
   "description": "Microsoft Copilot provider plugin for OpenClaw.",
   "type": "module",

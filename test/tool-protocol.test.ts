@@ -39,7 +39,7 @@ describe("tool protocol", () => {
 
   test("keeps only compact workspace context from the inherited system prompt", () => {
     const built = buildToolPrompt({
-      systemPrompt: `You are an expert coding assistant.
+      systemPrompt: `You are a personal assistant running inside OpenClaw.
 
 Guidelines:
 - Be concise
@@ -48,6 +48,10 @@ Pi documentation (read only when the user asks about pi itself, its SDK, extensi
 - Main documentation: /tmp/README.md
 - Additional docs: /tmp/docs
 - Examples: /tmp/examples
+
+OpenClaw documentation (read only when the user asks about OpenClaw itself, its SDK, plugins, channels, or CLI):
+- Main documentation: /tmp/openclaw-docs.md
+- Plugin docs: /tmp/plugin-docs
 
 Current date: 2026-03-23
 Current working directory: /workspace`,
@@ -58,8 +62,9 @@ Current working directory: /workspace`,
     expect(prompt).toContain("WORKING DIRECTORY");
     expect(prompt).toContain("/workspace");
     expect(prompt).not.toContain("Pi documentation");
+    expect(prompt).not.toContain("OpenClaw documentation");
     expect(prompt).not.toContain("Main documentation: /tmp/README.md");
-    expect(prompt).not.toContain("You are an expert coding assistant.");
+    expect(prompt).not.toContain("personal assistant running inside OpenClaw");
   });
 
   test("parses final JSON responses", () => {

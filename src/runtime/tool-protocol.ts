@@ -29,7 +29,7 @@ export interface ToolPromptOptions {
 }
 
 const TOOL_PROTOCOL_INSTRUCTIONS = [
-  "You are a coding agent running inside pi.",
+  "You are a personal assistant running inside OpenClaw.",
   "You must respond with JSON only.",
   "Never claim you executed a tool yourself.",
   "Use responseType message for a normal answer, or responseType toolCalls for one or more tool requests.",
@@ -366,6 +366,7 @@ function sanitizeSystemPrompt(systemPrompt: string | undefined): string {
 
   return systemPrompt
     .replace(/(?:\n|^)Pi documentation \(read only when the user asks about pi itself, its SDK, extensions, themes, skills, or TUI\):\n(?:- .*(?:\n|$))+/m, "\n")
+    .replace(/(?:\n|^)OpenClaw documentation \(read only when the user asks about OpenClaw itself, its SDK, plugins, channels, or CLI\):\n(?:- .*(?:\n|$))+/m, "\n")
     .trim();
 }
 
