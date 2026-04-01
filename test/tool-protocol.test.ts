@@ -41,8 +41,8 @@ describe("tool protocol", () => {
     const built = buildToolPrompt({
       systemPrompt: `You are a personal assistant running inside OpenClaw.
 
-Guidelines:
-- Be concise
+## Tool Call Style
+Default: do not narrate routine, low-risk tool calls.
 
 Pi documentation (read only when the user asks about pi itself, its SDK, extensions, themes, skills, or TUI):
 - Main documentation: /tmp/README.md
@@ -59,12 +59,27 @@ Current working directory: /workspace`,
     });
 
     const prompt = built.prompt;
+    expect(prompt).toContain("INHERITED OPENCLAW GUIDANCE");
+    expect(prompt).toContain("## Tool Call Style");
+    expect(prompt).toContain("Default: do not narrate routine, low-risk tool calls.");
     expect(prompt).toContain("WORKING DIRECTORY");
     expect(prompt).toContain("/workspace");
     expect(prompt).not.toContain("Pi documentation");
     expect(prompt).not.toContain("OpenClaw documentation");
     expect(prompt).not.toContain("Main documentation: /tmp/README.md");
     expect(prompt).not.toContain("You are an expert coding assistant.");
+    expect(built.metadata.inheritedGuidanceChars).toBeGreaterThan(0);
+  });
+
+  test("truncates inherited OpenClaw guidance when oversized", () => {
+    const built = buildToolPrompt({
+      systemPrompt: `## Safety\n${"Safety rule.\n".repeat(2000)}\nCurrent working directory: /workspace`,
+      messages: [{ role: "user", content: "Hi", timestamp: 1 }]
+    });
+
+    expect(built.prompt).toContain("INHERITED OPENCLAW GUIDANCE");
+    expect(built.prompt).toContain("[truncated");
+    expect(built.metadata.inheritedGuidanceChars).toBeGreaterThan(0);
   });
 
   test("parses final JSON responses", () => {

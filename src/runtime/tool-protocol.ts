@@ -11,6 +11,7 @@ export interface ToolPromptMetadata {
   kind: ToolPromptKind;
   promptChars: number;
   contractChars: number;
+  inheritedGuidanceChars: number;
   toolSummaryChars: number;
   currentTurnChars: number;
   toolCount: number;
@@ -51,6 +52,7 @@ const MAX_USER_MESSAGE_CHARS = 3000;
 const MAX_ASSISTANT_TEXT_CHARS = 2000;
 const MAX_TOOL_RESULT_CHARS = 2500;
 const MAX_REPAIR_REPLY_CHARS = 1200;
+const MAX_INHERITED_GUIDANCE_CHARS = 3600;
 
 export function buildToolAwarePrompt(context: Context, options: ToolPromptOptions = {}): string {
   return buildToolPrompt(context, options).prompt;
@@ -59,12 +61,14 @@ export function buildToolAwarePrompt(context: Context, options: ToolPromptOption
 export function buildToolPrompt(context: Context, options: ToolPromptOptions = {}): BuiltToolPrompt {
   const limits = resolvePromptLimits(options.maxPromptChars);
   const workingDirectory = extractWorkingDirectory(context.systemPrompt);
+  const inheritedGuidance = extractInheritedGuidance(context.systemPrompt, limits.maxInheritedGuidanceChars);
   const toolSummary = truncateText(formatTools(context.tools || []), limits.maxToolsSectionChars);
   const currentTurn = formatCurrentTurn(context.messages, limits);
   const kind = currentTurn.kind;
   const taskAnchorChars = currentTurn.taskAnchor?.length || 0;
   const sections = [
     TOOL_PROTOCOL_INSTRUCTIONS,
+    inheritedGuidance ? `INHERITED OPENCLAW GUIDANCE\n${inheritedGuidance}` : "",
     workingDirectory ? `WORKING DIRECTORY\n${workingDirectory}` : "",
     toolSummary ? `AVAILABLE TOOLS\n${toolSummary}` : "",
     `CURRENT TURN\n${currentTurn.text}`
@@ -77,6 +81,7 @@ export function buildToolPrompt(context: Context, options: ToolPromptOptions = {
       kind,
       promptChars: prompt.length,
       contractChars: TOOL_PROTOCOL_INSTRUCTIONS.length,
+      inheritedGuidanceChars: inheritedGuidance?.length || 0,
       toolSummaryChars: toolSummary.length,
       currentTurnChars: currentTurn.text.length,
       toolCount: context.tools?.length || 0,
@@ -108,6 +113,7 @@ export function buildRepairPrompt(
       kind: "repair",
       promptChars: prompt.length,
       contractChars: 0,
+      inheritedGuidanceChars: 0,
       toolSummaryChars: 0,
       currentTurnChars: 0,
       toolCount: 0,
@@ -376,6 +382,69 @@ function extractWorkingDirectory(systemPrompt: string | undefined): string | und
   return match?.[1]?.trim();
 }
 
+function extractInheritedGuidance(systemPrompt: string | undefined, maxChars: number): string | undefined {
+  const sanitized = sanitizeSystemPrompt(systemPrompt);
+  if (!sanitized) {
+    return undefined;
+  }
+
+  const withoutWorkingDirectory = sanitized
+    .replace(/^\s*Current working directory:\s*.+$/gim, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+  if (!withoutWorkingDirectory) {
+    return undefined;
+  }
+
+  const selected = selectGuidanceSections(withoutWorkingDirectory);
+  const truncated = truncateText(selected, maxChars).trim();
+  return truncated || undefined;
+}
+
+function selectGuidanceSections(prompt: string): string {
+  const lines = prompt.split("\n");
+  const chunks: Array<{ heading?: string; text: string }> = [];
+  let currentHeading: string | undefined;
+  let currentLines: string[] = [];
+
+  const flush = () => {
+    const text = currentLines.join("\n").trim();
+    if (text) {
+      chunks.push({ heading: currentHeading, text });
+    }
+    currentLines = [];
+  };
+
+  for (const line of lines) {
+    if (/^##\s+/.test(line)) {
+      flush();
+      currentHeading = line.trim();
+      currentLines.push(line);
+      continue;
+    }
+    currentLines.push(line);
+  }
+  flush();
+
+  if (chunks.length === 0) {
+    return prompt;
+  }
+
+  const allowed = new Set([
+    "## Tooling",
+    "## Tool Call Style",
+    "## Safety",
+    "## Messaging",
+    "## Workspace Context",
+    "## Runtime Context",
+    "## OpenClaw CLI Quick Reference"
+  ]);
+
+  const selected = chunks.filter((chunk) => !chunk.heading || allowed.has(chunk.heading));
+  const chosen = selected.length > 0 ? selected : chunks;
+  return chosen.map((chunk) => chunk.text).join("\n\n");
+}
+
 function summarizeToolParameters(tool: Tool): string {
   const properties = (tool.parameters as { properties?: Record<string, unknown> } | undefined)?.properties;
   if (!properties) {
@@ -453,6 +522,7 @@ function truncateText(value: string, maxChars: number): string {
 
 interface PromptLimits {
   maxPromptChars: number;
+  maxInheritedGuidanceChars: number;
   maxToolsSectionChars: number;
   maxConversationChars: number;
   maxUserMessageChars: number;
@@ -478,6 +548,10 @@ function resolvePromptLimits(maxPromptChars = DEFAULT_MAX_PROMPT_CHARS): PromptL
   const safeMaxPromptChars = Number.isFinite(maxPromptChars) ? Math.max(0, Math.floor(maxPromptChars)) : 0;
   return {
     maxPromptChars: safeMaxPromptChars,
+    maxInheritedGuidanceChars:
+      safeMaxPromptChars <= 0
+        ? 0
+        : Math.min(MAX_INHERITED_GUIDANCE_CHARS, Math.max(900, Math.floor(safeMaxPromptChars * 0.35))),
     maxToolsSectionChars:
       safeMaxPromptChars <= 0 ? 0 : Math.min(MAX_TOOLS_SECTION_CHARS, Math.max(600, Math.floor(safeMaxPromptChars * 0.25))),
     maxConversationChars:
