@@ -1,5 +1,5 @@
 import type { StreamFn } from "@mariozechner/pi-agent-core";
-import { getApiProvider, registerApiProvider, type ThinkingLevel } from "@mariozechner/pi-ai";
+import type { ThinkingLevel } from "@mariozechner/pi-ai";
 import type {
   ProviderAuthContext,
   ProviderAuthResult,
@@ -12,7 +12,7 @@ import { CopilotSessionStore } from "./runtime/session-store.js";
 
 const PROVIDER_ID = "microsoft-copilot";
 const MODEL_ID = "copilot";
-const API_ID = "microsoft-copilot-chat";
+const API_ID = "openai-completions";
 const TOKEN_TTL_MS = 1000 * 60 * 60 * 24 * 365 * 10;
 const BASE_URL = "https://copilot.microsoft.com/c/api";
 
@@ -32,6 +32,7 @@ export const PROVIDER_MODELS = [
 const sessionStore = new CopilotSessionStore();
 const resolvedConfig = loadConfig();
 const traceWriter = resolvedConfig.trace ? new SessionTraceWriter(resolvedConfig.traceFile) : undefined;
+let startupDebugWritten = false;
 const runtimeManager = new CopilotRuntimeManager(
   resolvedConfig,
   (sessionId) => sessionStore.get(sessionId),
@@ -90,6 +91,15 @@ function buildStreamFn(): StreamFn {
       (options as { reasoning?: ThinkingLevel | "off"; thinkingLevel?: ThinkingLevel | "off" })
         ?.thinkingLevel) as ThinkingLevel | "off" | undefined;
 
+    traceWriter?.write("plugin.stream.invoked", {
+      sessionId,
+      modelId: typeof (model as { id?: unknown })?.id === "string" ? (model as { id?: string }).id : null,
+      contextType: typeof context === "string" ? "prompt" : "context",
+      hasApiKey: Boolean((options as { apiKey?: string | undefined })?.apiKey),
+      reasoning: reasoning ?? null,
+      pid: process.pid
+    });
+
     // OpenClaw custom provider stream functions receive plain prompts via streamSimple
     // and full contexts via stream; route both paths explicitly.
     if (typeof context === "string") {
@@ -113,21 +123,6 @@ function buildStreamFn(): StreamFn {
   };
 }
 
-function ensureApiProviderRegistered(): void {
-  if (getApiProvider(API_ID)) {
-    return;
-  }
-
-  registerApiProvider(
-    {
-      api: API_ID as any,
-      stream: (model: any, context: any, options?: any) => buildStreamFn()(model, context, options) as any,
-      streamSimple: (model: any, context: any, options?: any) => buildStreamFn()(model, context, options) as any,
-    },
-    "msco-openclaw",
-  );
-}
-
 export function resolveCopilotMode(reasoning: ThinkingLevel | "off" | undefined): CopilotMode | undefined {
   if (!reasoning || reasoning === "off") {
     return "smart";
@@ -139,8 +134,21 @@ export function resolveCopilotMode(reasoning: ThinkingLevel | "off" | undefined)
 }
 
 export function buildMicrosoftCopilotProvider() {
-  ensureApiProviderRegistered();
   const config = resolvedConfig;
+  if (!startupDebugWritten) {
+    traceWriter?.write("plugin.debug.enabled", {
+      providerId: PROVIDER_ID,
+      pluginId: "msco-openclaw",
+      traceFile: traceWriter.filePath,
+      envTraceFlag: process.env.MICROSOFT_COPILOT_TRACE ?? process.env.COPILOT_TRACE ?? null,
+      accessTokenEnvPresent: Boolean(
+        process.env.MICROSOFT_COPILOT_ACCESS_TOKEN ?? process.env.COPILOT_ACCESS_TOKEN,
+      ),
+      pid: process.pid,
+      cwd: process.cwd(),
+    });
+    startupDebugWritten = true;
+  }
   return {
     id: PROVIDER_ID,
     label: "Microsoft Copilot",

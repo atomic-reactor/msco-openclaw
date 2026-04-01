@@ -1,5 +1,4 @@
 import { describe, expect, test } from "vitest";
-import { getApiProvider } from "@mariozechner/pi-ai";
 import {
   PROVIDER_MODELS,
   buildMicrosoftCopilotProvider,
@@ -106,7 +105,7 @@ describe("provider", () => {
 
     expect(catalog).toMatchObject({
       provider: {
-        api: "microsoft-copilot-chat",
+        api: "openai-completions",
         baseUrl: "https://copilot.microsoft.com/c/api",
         apiKey: "env-token"
       }
@@ -137,8 +136,4 @@ describe("provider", () => {
     });
   });
 
-  test("registers custom API stream provider for microsoft-copilot-chat", () => {
-    buildMicrosoftCopilotProvider();
-    expect(getApiProvider("microsoft-copilot-chat" as any)).toBeTruthy();
-  });
 });

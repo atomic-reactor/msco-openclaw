@@ -88,17 +88,32 @@ Thinking mapping:
   - Expected in v1. Usage endpoint wiring is not implemented yet.
 
 - **No output and no visible Copilot web conversation**
-  - Enable tracing:
+  - Use daemon-safe env (recommended):
     ```bash
-    export MICROSOFT_COPILOT_TRACE=1
-    export MICROSOFT_COPILOT_TRACE_FILE=~/.openclaw/logs/msco-openclaw.ndjson
+    mkdir -p ~/.openclaw/logs
+    cat > ~/.openclaw/.env <<'EOF'
+    MICROSOFT_COPILOT_TRACE=1
+    MICROSOFT_COPILOT_TRACE_FILE=$HOME/.openclaw/logs/msco-openclaw.ndjson
+    EOF
     ```
-  - Restart OpenClaw and retry once, then inspect:
+  - Restart gateway and retry once:
+    ```bash
+    openclaw gateway restart
+    ```
+  - Inspect trace (latest entries):
     ```bash
     tail -n 120 ~/.openclaw/logs/msco-openclaw.ndjson
     ```
+  - Quick verification filters:
+    ```bash
+    grep -E "plugin.debug.enabled|plugin.stream.invoked|request.start|request.completed|request.failed" ~/.openclaw/logs/msco-openclaw.ndjson | tail -n 40
+    ```
   - Look for these events:
+    - `plugin.debug.enabled` (confirms daemon loaded env + plugin startup)
+    - `plugin.stream.invoked` (confirms your actual request executed through this plugin)
     - `request.start`
     - `conversation.create.start` / `conversation.create.done`
     - `socket.inbound.event`
     - `request.completed` or `request.failed`
+  - TUI-visible validation: when debug is enabled and request fails, the trace now includes explicit reasons such as
+    `No Copilot response events received before timeout`, which should align with the user-facing error path.

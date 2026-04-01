@@ -32,7 +32,7 @@ class MockSocket extends EventEmitter {
 const model: Model<"openai-completions"> = {
   id: "copilot",
   name: "Microsoft Copilot",
-  api: "microsoft-copilot-chat" as "openai-completions",
+  api: "openai-completions",
   provider: "microsoft-copilot" as any,
   baseUrl: "https://copilot.microsoft.com/c/api",
   reasoning: true,
