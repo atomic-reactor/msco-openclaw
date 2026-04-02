@@ -104,13 +104,15 @@ describe("provider", () => {
     });
 
     expect(catalog).toMatchObject({
-      provider: {
-        api: "openai-completions",
-        baseUrl: "https://copilot.microsoft.com/c/api",
-        apiKey: "env-token"
+      providers: {
+        "microsoft-copilot": {
+          api: "openai-completions",
+          baseUrl: "https://copilot.microsoft.com/c/api",
+          apiKey: "env-token"
+        }
       }
     });
-    expect(catalog?.provider.models).toHaveLength(1);
+    expect(catalog?.providers?.["microsoft-copilot"]?.models).toHaveLength(1);
   });
 
   test("catalog returns null when no provider token is resolved", async () => {
@@ -130,8 +132,10 @@ describe("provider", () => {
     });
 
     expect(catalog).toMatchObject({
-      provider: {
-        apiKey: "legacy-oauth-token",
+      providers: {
+        "microsoft-copilot": {
+          apiKey: "legacy-oauth-token",
+        },
       },
     });
   });

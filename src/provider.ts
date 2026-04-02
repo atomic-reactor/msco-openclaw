@@ -217,12 +217,14 @@ export function buildMicrosoftCopilotProvider() {
           keyLength: key.length
         });
         return {
-          provider: {
-            api: API_ID,
-            baseUrl: BASE_URL,
-            apiKey: key,
-            models: PROVIDER_MODELS as any,
-          } as any,
+          providers: {
+            [PROVIDER_ID]: {
+              api: API_ID,
+              baseUrl: BASE_URL,
+              apiKey: key,
+              models: PROVIDER_MODELS as any,
+            } as any,
+          },
         };
       },
     },
